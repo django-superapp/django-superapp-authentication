@@ -12,4 +12,3 @@ cd ../../;
 
 ### Documentation
 For a more detailed documentation, visit [https://django-superapp.bringes.io](https://django-superapp.bringes.io).
-
