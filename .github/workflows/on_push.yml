@@ -16,7 +16,7 @@ jobs:
         uses: anothrNick/github-tag-action@1.61.0
         id: tag_version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
           WITH_V: true
           DEFAULT_BUMP: patch
       - name: Create Release
