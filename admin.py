@@ -1,21 +1,18 @@
+from django.apps import apps
 from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
-from django.db import models
 from django.utils.translation import gettext_lazy as _
-from superapp.apps.admin_portal.helpers import SuperAppModelAdmin
-from superapp.apps.admin_portal.sites import superapp_admin_site
 from unfold.admin import ModelAdmin
-from unfold.contrib.forms.widgets import WysiwygWidget
 from unfold.decorators import display
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
+from superapp.apps.admin_portal.helpers import SuperAppModelAdmin
+from superapp.apps.admin_portal.sites import superapp_admin_site
 from .models import (
     User,
 )
-
-admin.site.unregister(Group)
 
 
 @admin.register(User, site=superapp_admin_site)
@@ -23,6 +20,7 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
     change_password_form = AdminPasswordChangeForm
+    search_fields = ["email", "first_name", "last_name", "phone_number", "anonymous_id"]
     list_display = [
         "display_header",
         "is_active",
@@ -30,11 +28,33 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
         "display_superuser",
         "display_created",
     ]
+    add_fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "email",
+                    "password1",
+                    "password2",
+                ),
+            },
+        ),
+    )
     fieldsets = (
-        (None, {"fields": ("email", "password")}),
+        (None, {
+            "fields": (
+                "email",
+                "email_verified",
+                "phone_number",
+                "phone_number_verified",
+                "anonymous_id",
+                "anonymous_id_verified",
+                "password",
+            )
+        }),
         (
             _("Personal info"),
-            {"fields": (("first_name", "last_name"),)},
+            {"fields": ("photo_url", ("first_name", "last_name"),)},
         ),
         (
             _("Permissions"),
@@ -54,16 +74,12 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
         "groups",
         "user_permissions",
     )
-    formfield_overrides = {
-        models.TextField: {
-            "widget": WysiwygWidget,
-        }
-    }
     readonly_fields = ["last_login", "date_joined"]
+    ordering = ["-created_at"]
 
     @display(description=_("User"), header=True)
     def display_header(self, instance: User):
-        return instance.full_name, instance.email or instance.username
+        return instance.full_name, str(instance)
 
     @display(description=_("Staff"), boolean=True)
     def display_staff(self, instance: User):
@@ -81,3 +97,89 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
 @admin.register(Group, site=superapp_admin_site)
 class GroupAdmin(BaseGroupAdmin, ModelAdmin):
     pass
+
+
+if apps.is_installed("allauth.account"):
+    from allauth.account.admin import EmailConfirmationAdmin, EmailAddressAdmin
+    from allauth.account.models import EmailConfirmation, EmailAddress
+
+    if admin.site.is_registered(EmailAddress):
+        superapp_admin_site.register(
+            EmailAddress,
+            (lambda: type('EmailAddressAdmin', (EmailAddressAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+    if admin.site.is_registered(EmailConfirmation):
+        superapp_admin_site.register(
+            EmailConfirmation,
+            (lambda: type('EmailConfirmationAdmin', (EmailConfirmationAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+if apps.is_installed("allauth.usersessions"):
+    from allauth.usersessions.admin import UserSessionAdmin
+    from allauth.usersessions.models import UserSession
+
+    if admin.site.is_registered(UserSession):
+        superapp_admin_site.register(
+            UserSession,
+            (lambda: type('UserSessionAdmin', (UserSessionAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+if apps.is_installed("allauth.mfa"):
+    from allauth.mfa.admin import AuthenticatorAdmin
+    from allauth.mfa.models import Authenticator
+
+    if admin.site.is_registered(Authenticator):
+        superapp_admin_site.register(
+            Authenticator,
+            (lambda: type('AuthenticatorAdmin', (AuthenticatorAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+if apps.is_installed("allauth.socialaccount"):
+    from allauth.socialaccount.admin import SocialAppAdmin, SocialTokenAdmin, SocialAccountAdmin
+    from allauth.socialaccount.models import SocialApp, SocialToken, SocialAccount
+
+    if admin.site.is_registered(SocialApp):
+        superapp_admin_site.register(
+            SocialApp,
+            (lambda: type('SocialAppAdmin', (SocialAppAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+    if admin.site.is_registered(SocialToken):
+        superapp_admin_site.register(
+            SocialToken,
+            (lambda: type('SocialTokenAdmin', (SocialTokenAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+    if admin.site.is_registered(SocialAccount):
+        superapp_admin_site.register(
+            SocialAccount,
+            (lambda: type('SocialAccountAdmin', (SocialAccountAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+
+if apps.is_installed("allauth.socialaccount.providers.sms"):
+    from allauth.socialaccount.providers.sms.admin import SMSVerificationAdmin
+    from allauth.socialaccount.providers.sms.models import SMSVerification
+
+    if admin.site.is_registered(SMSVerification):
+        superapp_admin_site.register(
+            SMSVerification,
+            (lambda: type('SMSVerificationAdmin', (SMSVerificationAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+if apps.is_installed("allauth.socialaccount.providers.openid"):
+    from allauth.socialaccount.providers.openid.admin import OpenIDStoreAdmin, OpenIDNonceAdmin
+    from allauth.socialaccount.providers.openid.models import OpenIDStore, OpenIDNonce
+
+    if admin.site.is_registered(OpenIDStore):
+        superapp_admin_site.register(
+            OpenIDStore,
+            (lambda: type('OpenIDStoreAdmin', (OpenIDStoreAdmin, SuperAppModelAdmin), {}))(),
+        )
+
+    if admin.site.is_registered(OpenIDNonce):
+        superapp_admin_site.register(
+            OpenIDNonce,
+            (lambda: type('OpenIDNonceAdmin', (OpenIDNonceAdmin, SuperAppModelAdmin), {}))(),
+        )
