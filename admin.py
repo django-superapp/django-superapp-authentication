@@ -79,7 +79,6 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
                 ("first_name", "last_name"),
                 "user_phone_number",
                 "address",
-                "location",
                 "photo_url",
             )},
         ),
