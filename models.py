@@ -1,9 +1,7 @@
-import json
 import uuid
 
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
-from django.core import serializers
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -41,6 +39,22 @@ class CustomUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
+    def get_by_natural_key(self, *args):
+        """
+        Get a user by their natural key (email, phone number, or anonymous ID).
+        """
+        if len(args) == 1:
+            key = args[0]
+        else:
+            # Handle case where natural key is unpacked as individual characters
+            key = ''.join(args)
+            
+        return self.get(
+            Q(email=key) |
+            Q(phone_number=key) |
+            Q(anonymous_id=key)
+        )
+
 
 class User(AbstractUser, GuardianUserMixin):
     username = None
@@ -54,6 +68,7 @@ class User(AbstractUser, GuardianUserMixin):
     
     phone_number = models.CharField(_("Phone number"), max_length=255, blank=True, null=True, unique=True)
     phone_number_verified = models.DateTimeField(_("Phone number verified"), blank=True, null=True)
+    checkout_phone_number = models.CharField(_("Checkout phone number"), max_length=255, blank=True, null=True)
     photo_url = models.CharField(max_length=255, blank=True, null=True)
 
     default_organization = models.ForeignKey(
@@ -108,7 +123,6 @@ class User(AbstractUser, GuardianUserMixin):
         verbose_name = _("user")
         verbose_name_plural = _("users")
         permissions = (
-            ("can_view_quote_materials", "Can view quote materials"),
             ("can_view_dashboard", "Can view dashboard"),
             ("can_view_custom_page", "Can view custom page"),
             ("is_normal_user", "Is a normal user?"),
@@ -145,13 +159,20 @@ class User(AbstractUser, GuardianUserMixin):
         return None
 
     @property
-    def can_view_quote_materials(self):
-        return self.has_perm("authentication.can_view_quote_materials")
-
-    @property
     def is_normal_user(self):
         return not self.is_superuser and self.has_perm("authentication.is_normal_user")
 
-    def to_json(self):
-        return json.loads(serializers.serialize('json', [ self, ]))[0]['fields']
+    @property
+    def is_anonymous(self):
+        return not self.email_verified and not self.phone_number_verified
+
+    def natural_key(self):
+        """Return a natural key for serialization."""
+        if self.email:
+            return (self.email,)
+        elif self.phone_number:
+            return (self.phone_number,)
+        else:
+            return (self.anonymous_id or f"anonymous-{self.pk}",)
+
 
