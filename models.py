@@ -71,21 +71,6 @@ class User(AbstractUser, GuardianUserMixin):
     checkout_phone_number = models.CharField(_("Checkout phone number"), max_length=255, blank=True, null=True)
     photo_url = models.CharField(max_length=255, blank=True, null=True)
 
-    default_organization = models.ForeignKey(
-        "easywindow.Organization",
-        verbose_name=_("default organization"),
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-    )
-
-    location = models.ForeignKey(
-        'easywindow.Location',
-        on_delete=models.CASCADE,
-        related_name='users',
-        blank=True,
-        null=True,
-    )
     address = models.CharField(max_length=1024, blank=True, null=True)
 
     is_staff = models.BooleanField(
@@ -139,15 +124,6 @@ class User(AbstractUser, GuardianUserMixin):
     def save(self, *args, **kwargs):
         if not self.password:
             self.password = uuid.uuid4().hex
-
-        # if not self.default_organization:
-        #     # Create an empty organization for this user
-        #     from superapp.apps.easywindow.models import Organization
-        #     organization = Organization.objects.create()
-        #     self.default_organization = organization
-        #     super().save(*args, **kwargs)
-        #     organization.user_admin = self
-        #     organization.save(update_fields=['user_admin'])
 
         super().save(*args, **kwargs)
 

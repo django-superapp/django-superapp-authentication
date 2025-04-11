@@ -7,7 +7,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('authentication', '0005_user_checkout_phone_number'),
-        ('easywindow', '0035_alter_organizationuser_user'),
     ]
 
     operations = [
