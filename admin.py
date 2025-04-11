@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
@@ -15,6 +16,24 @@ from .models import (
 )
 
 
+class UserTypeFilter(SimpleListFilter):
+    title = _('User Type')
+    parameter_name = 'user_type'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('authenticated', _('Authenticated Users')),
+            ('anonymous', _('Anonymous Users')),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'authenticated':
+            return queryset.filter(anonymous_id__isnull=True)
+        elif self.value() == 'anonymous':
+            return queryset.filter(anonymous_id__isnull=False)
+        return queryset
+
+
 @admin.register(User, site=superapp_admin_site)
 class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
     form = UserChangeForm
@@ -28,6 +47,8 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
         "display_superuser",
         "display_created",
     ]
+    list_filter = [UserTypeFilter, "is_active", "is_staff", "is_superuser"]
+
     add_fieldsets = (
         (
             None,
@@ -54,7 +75,13 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
         }),
         (
             _("Personal info"),
-            {"fields": ("photo_url", ("first_name", "last_name"),)},
+            {"fields": (
+                ("first_name", "last_name"),
+                "user_phone_number",
+                "address",
+                "location",
+                "photo_url",
+            )},
         ),
         (
             _("Permissions"),
@@ -74,8 +101,11 @@ class UserAdmin(BaseUserAdmin, SuperAppModelAdmin):
         "groups",
         "user_permissions",
     )
-    readonly_fields = ["last_login", "date_joined"]
+    readonly_fields = ["last_login", "date_joined", "user_phone_number"]
     ordering = ["-created_at"]
+
+    def user_phone_number(self, instance: User):
+        return instance.phone_number or instance.checkout_phone_number or _("Not provided")
 
     @display(description=_("User"), header=True)
     def display_header(self, instance: User):

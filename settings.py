@@ -4,6 +4,26 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 
+def reverse_lazy_with_params(viewname, urlconf=None, args=None, kwargs=None, current_app=None, params=None):
+    """
+    Lazy version of reverse with query parameters.
+    Both the URL and the parameters are evaluated lazily.
+    """
+    lazy_url = reverse_lazy(viewname, urlconf, args, kwargs, current_app)
+    
+    if params is None:
+        return lazy_url
+    
+    def _add_params():
+        url = lazy_url.__str__()
+        param_string = '&'.join(f"{k}={v}" for k, v in params.items())
+        return f"{url}?{param_string}" if param_string else url
+    
+    # Create a lazy object that will evaluate the URL with parameters when needed
+    from django.utils.functional import lazy
+    return lazy(_add_params, str)()
+
+
 def extend_superapp_settings(main_settings):
     main_settings['INSTALLED_APPS'] = ['superapp.apps.authentication',] + main_settings['INSTALLED_APPS'] + [
         'guardian',
@@ -45,6 +65,24 @@ def extend_superapp_settings(main_settings):
         'superapp.apps.authentication.middleware.TokenAuthenticationMiddleware',
         "allauth.account.middleware.AccountMiddleware",
     ]
+    # Define tabs for User model
+    main_settings.setdefault('UNFOLD', {}).setdefault('TABS', []).append({
+        "models": [
+            "authentication.user",
+        ],
+        # List of tab items
+        "items": [
+            {
+                "title": _("Authenticated Users"),
+                "link": reverse_lazy_with_params("admin:authentication_user_changelist", params={"user_type": "authenticated"}),
+            },
+            {
+                "title": _("Anonymous Users"),
+                "link": reverse_lazy_with_params("admin:authentication_user_changelist", params={"user_type": "anonymous"}),
+            },
+        ],
+    })
+    
     main_settings['UNFOLD']['SIDEBAR']['navigation'] += [
         {
             "title": _("Users"),
@@ -54,7 +92,7 @@ def extend_superapp_settings(main_settings):
                 {
                     "title": _("Users"),
                     "icon": "person",  # Icons from https://fonts.google.com/icons
-                    "link": reverse_lazy("admin:authentication_user_changelist"),  # add url pattern here
+                    "link": reverse_lazy_with_params("admin:authentication_user_changelist", params={"user_type": "authenticated"}),  # add url pattern here
                     "permission": lambda request: request.user.has_perm('authentication.view_user'),
                 },
                 {
@@ -71,9 +109,8 @@ def extend_superapp_settings(main_settings):
     })
     main_settings['ALLAUTH_UI_THEME'] = 'dark'
     main_settings['ACCOUNT_USER_MODEL_USERNAME_FIELD'] = None
-    main_settings['ACCOUNT_EMAIL_REQUIRED'] = True
+    main_settings['ACCOUNT_SIGNUP_FIELDS'] = ['email*', 'password1*', 'password2*']
     # main_settings['ACCOUNT_DEFAULT_HTTP_PROTOCOL'] = "https"
-    main_settings['ACCOUNT_USERNAME_REQUIRED'] = False
     main_settings['ACCOUNT_LOGIN_METHODS'] = {'email'}
     main_settings['ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION'] = True
     main_settings['ACCOUNT_LOGIN_ON_PASSWORD_RESET'] = True
@@ -83,7 +120,7 @@ def extend_superapp_settings(main_settings):
     main_settings['ACCOUNT_LOGIN_BY_CODE_ENABLED'] = True
 
     main_settings['ACCOUNT_FORMS'] = {
-        # 'homepage_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
+        'homepage_login': 'superapp.apps.authentication.forms.TurnstailSMSLoginForm',
         'request_login_code': 'superapp.apps.authentication.forms.TurnstailRequestLoginCodeForm',
         'confirm_login_code': 'superapp.apps.authentication.forms.TurnstailConfirmLoginCodeForm',
         'confirm_email_verification_code': 'superapp.apps.authentication.forms.TurnstailConfirmEmailVerificationCodeForm',
